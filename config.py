@@ -20,15 +20,15 @@ load_dotenv(ROOT / ".env")
 # Change this to switch corpora, or pass --corpus on the command line.
 # Options are the folder names inside corpora/. See corpora/README.md.
 
-CORPUS = os.getenv("AI201_CORPUS", "campus_life")
+CORPUS = os.getenv("AI201_CORPUS", "advice_threads")
 
 
 # ─── Chunking (Milestone 3) ──────────────────────────────────────────────────
 # These are deliberately plain, generic numbers. Milestone 3 is where you
 # replace them with numbers that fit the documents you actually read.
 
-CHUNK_SIZE = 800        # characters per chunk
-CHUNK_OVERLAP = 120     # characters shared between neighbouring chunks
+CHUNK_SIZE = 500        # characters per chunk for reply-sized chunks
+CHUNK_OVERLAP = 80      # a small overlap to keep adjacent replies connected
 
 
 # ─── Retrieval (Milestone 4) ─────────────────────────────────────────────────
@@ -40,10 +40,10 @@ TOP_K = 5               # how many chunks to pull back per question
 #
 # LOWER IS BETTER: 0.3 is a close match, 0.9 is unrelated.
 #
-# 0.6 is a reasonable starting point, not a right answer. Milestone 4 has you
-# measure your own two groups of distances and put the cutoff in the gap.
-# Most corpora land somewhere between 0.45 and 0.75.
-THRESHOLD = 0.6
+# I measured the best in-corpus distances against the out-of-corpus baselines
+# and placed the cutoff in the gap between them: 0.65 rejects the unrelated
+# questions while still letting the supported advice-thread questions through.
+THRESHOLD = 0.65
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────

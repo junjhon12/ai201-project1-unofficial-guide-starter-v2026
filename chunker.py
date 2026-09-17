@@ -20,8 +20,13 @@ your README has to name the function that produced your chunks.
 If you get stuck for 30 minutes, `fallback_split` is the original. Switch back
 to it, write down what you saw, and move on. That's a real observation about
 your pipeline, not giving up.
+
+Tell me what question it could answer on its own. If it can't answer anything on its own, say so and tell me what's missing.
+
+
 """
 
+import re
 from dataclasses import dataclass
 
 import config
@@ -81,23 +86,84 @@ def fallback_split(
 
 
 def split_documents(documents: list[Document]) -> list[Chunk]:
+    """Use reply boundaries rather than raw character windows.
+
+    The advice-thread corpus is organized by reply blocks, and each reply often
+    contains a complete opinion or recommendation. Splitting on these boundaries
+    preserves the useful unit of meaning better than slicing every 800
+    characters with a fixed overlap.
+
+    We also keep the thread title with each reply so retrieval can match the
+    actual topic words from the document question instead of only the reply text.
     """
-    Split documents into chunks. ⚠️ REPLACE THE BODY OF THIS IN MILESTONE 3.
+    chunks: list[Chunk] = []
 
-    Right now it just calls the fallback. That is the plain, generic behaviour
-    the brief is talking about.
+    reply_pattern = re.compile(r"(?ms)^--- reply .*? ---\s*\n(.*?)(?=^--- reply |\Z)")
 
-    When you write your own strategy, set `produced_by` to
-    "chunker.py::split_documents" so your README's Sample Chunks section names
-    the right function. `app.py chunks` prints that string for you.
+    for doc in documents:
+        title = next(
+            (line.strip() for line in doc.text.splitlines() if line.strip().startswith("THREAD:")),
+            "",
+        )
+        context = f"{title}\n" if title else ""
+        matches = list(reply_pattern.finditer(doc.text.strip()))
 
-    Things worth thinking about before you write any code:
-      - Are your documents short posts or long guides?
-      - Is the useful information in one sentence, or spread over a paragraph?
-      - Would splitting on paragraph breaks keep more thoughts intact than
-        splitting on a character count?
-    """
-    return fallback_split(documents)
+        if matches:
+            for index, match in enumerate(matches):
+                text = match.group(0).strip()
+                if text:
+                    chunks.append(
+                        Chunk(
+                            text=f"{context}{text}",
+                            source=doc.source,
+                            index=index,
+                            produced_by="chunker.py::split_documents",
+                        )
+                    )
+            continue
+
+        # Fallback for any corpus that does not mark replies explicitly.
+        if doc.text.strip():
+            paragraphs = [p.strip() for p in re.split(r"\n\s*\n+", doc.text.strip()) if p.strip()]
+            buffer = ""
+            index = 0
+            for paragraph in paragraphs:
+                candidate = f"{buffer} {paragraph}" if buffer else paragraph
+                if len(candidate) <= config.CHUNK_SIZE:
+                    buffer = candidate
+                    continue
+                if buffer:
+                    chunks.append(
+                        Chunk(
+                            text=f"{context}{buffer.strip()}",
+                            source=doc.source,
+                            index=index,
+                            produced_by="chunker.py::split_documents",
+                        )
+                    )
+                    index += 1
+                    buffer = paragraph
+                else:
+                    chunks.append(
+                        Chunk(
+                            text=f"{context}{paragraph[: config.CHUNK_SIZE].strip()}",
+                            source=doc.source,
+                            index=index,
+                            produced_by="chunker.py::split_documents",
+                        )
+                    )
+                    index += 1
+            if buffer:
+                chunks.append(
+                    Chunk(
+                        text=f"{context}{buffer.strip()}",
+                        source=doc.source,
+                        index=index,
+                        produced_by="chunker.py::split_documents",
+                    )
+                )
+
+    return chunks
 
 
 def describe(chunks: list[Chunk]) -> str:

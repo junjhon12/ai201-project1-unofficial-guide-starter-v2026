@@ -1,20 +1,6 @@
 # The Unofficial Guide
 
-<!-- Replace this line with your name and which corpus you picked. -->
-
-> **This file is your submission.** Fill it in as you go — most sections get
-> written during the milestone that produces them, not at the end.
->
-> How the starter works, and every command you'll need, is in `RUNNING.md`.
-> Leave that file alone.
->
-> **Paste everything as text.** No screenshots, no video. A typed table gets
-> full credit; a picture of the same table gets none.
->
-> Delete these instruction blocks as you replace them. The `<!-- -->` comments
-> are notes to you and don't show up when the page renders — you can leave them
-> or remove them.
-26
+The project is built around the `advice_threads` corpus, where students answer practical campus-life questions in short, opinionated replies. The system retrieves the most relevant reply chunks and answers questions about commuting, roommate issues, laundry timing, office-hours norms, and textbook questions using only those documents.
 
 ---
 
@@ -22,76 +8,88 @@
 
 ## What This Does
 
-<!-- Three or four sentences. Which corpus you picked, and the kinds of
-     questions your system answers. Write it for someone who has never seen
-     this repo.
-
-     Milestone 5. -->
+This project builds a small retrieval system over the `advice_threads` corpus. It loads the thread documents, splits them into reply-sized chunks, embeds them, retrieves the closest matches for a question, and then answers from those chunks while naming the source file. The point is to answer practical student questions from the corpus without inventing facts or guessing when the documents do not cover the topic.
 
 ## Chunking Strategy
 
-**Chunk size:**
-**Overlap:**
+**Chunk size:** 500 characters
+**Overlap:** 80 characters
 
-<!-- What about YOUR documents made you pick these numbers? Short posts and
-     long sectioned guides don't want the same chunking, and "800 seemed
-     reasonable" earns nothing. Point at something you noticed when you read
-     the documents in Milestone 1.
-
-     If you changed your mind partway through, say so and say why. That's worth
-     more than pretending you got it right first time.
-
-     Milestone 3. -->
+I chose these numbers because the corpus is made of short, self-contained replies rather than long sectioned guides. Most useful information sits inside one reply, and the reply header plus a few sentences are enough to stand alone. A fixed 800-character chunk was too blunt for this material and would cut across the logic of a reply; a smaller chunk size helps preserve each answer as a complete thought while still keeping a little continuity between adjacent replies.
 
 ## Sample Chunks
 
-<!-- Five chunks, pasted as text. Label each one and name the file it came from
-     AND the function that produced it — the grader checks your code against
-     what you claim here.
-
-     `python app.py chunks -n 5` prints all three for you. Copy them straight
-     across.
-
-     Milestone 3. -->
-
-**Chunk 1** — source: `` — produced by: ``
+**Chunk 1** — source: `thread_bike_commute.txt#0` — produced by: `chunker.py::split_documents`
 
 ```
+--- reply 1 (14 votes) ---
+Yeah. Cuts an 18 minute walk to about 6. The thing nobody mentions is storage — covered bike parking exists at three buildings and is full by 9am at all three.
 ```
 
-**Chunk 2** — source: `` — produced by: ``
+**Chunk 2** — source: `thread_first_gen.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+--- reply 2 (41 votes) ---
+The thing I'd say: the unwritten rules are the hard part, not the coursework. Ask about the unwritten rules explicitly. People are happy to explain them and nobody volunteers them.
 ```
 
-**Chunk 3** — source: `` — produced by: ``
+**Chunk 3** — source: `thread_laptop_specs.txt#2` — produced by: `chunker.py::split_documents`
 
 ```
+--- reply 3 (12 votes) ---
+I did two years on an 8GB machine and it was fine until the last project, at which point it very much wasn't. 16 is the answer.
 ```
 
-**Chunk 4** — source: `` — produced by: ``
+**Chunk 4** — source: `thread_parking.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+--- reply 2 (21 votes) ---
+Street parking on Verrill is legal and free and unmarked, which is why half the upper years do it.
 ```
 
-**Chunk 5** — source: `` — produced by: ``
+**Chunk 5** — source: `thread_sleep_schedule.txt#1` — produced by: `chunker.py::split_documents`
 
 ```
+--- reply 2 (37 votes) ---
+The library being open until 2am is a trap. It's a resource, not a schedule.
 ```
 
 ## Sample Answer
 
-<!-- One complete question and answer, pasted as text, with the source line
-     visible. Milestone 4. -->
-
-**Question:**
+**Question:** When is laundry actually free in the dorms?
 
 **Answer:**
 
 ```
+According to thread_laundry_timing.txt, Tuesday and Wednesday mornings are the free laundry times in every building, and Sunday evening is the worst option.
 ```
 
-**My relevance cutoff:**
+**My relevance cutoff:** 0.65
+
+I measured the best distance for five in-corpus questions and five clearly out-of-scope questions. In-corpus results clustered between about 0.39 and 0.60, while out-of-scope questions stayed above 0.72. Putting the threshold at 0.65 sits in the middle of that gap and keeps related questions in while refusing unrelated ones.
+
+| Question | In corpus? | Best distance |
+|---|---|---|
+| Is a bike worth it for a 20-minute walk commute? | Yes | 0.3948 |
+| What should I do if my roommate situation is not working? | Yes | 0.5992 |
+| When is laundry actually free in the dorms? | Yes | 0.5872 |
+| Does the textbook edition matter for math or physics classes? | Yes | 0.5122 |
+| Is it weird to go to office hours without a specific question? | Yes | 0.5168 |
+| What is the capital of Mongolia? | No | 0.8967 |
+| How do I change the oil in a diesel engine? | No | 0.7211 |
+| Who won the 1994 World Cup? | No | 0.9110 |
+| What is the recommended dosage of ibuprofen for a headache? | No | 0.7818 |
+| How do I write a for loop in Rust? | No | 0.8917 |
+
+## How I Used AI
+
+**1.** I asked a model to help me identify a better chunking rule for the advice-thread corpus. It suggested a generic character-based heuristic, but it did not respect reply boundaries, so I changed the implementation to split on the `--- reply ... ---` blocks and kept a small overlap to preserve continuity between adjacent replies.
+
+**2.** I asked for help tightening the relevance-gate logic and checking whether the threshold should be lower or higher. The response suggested a broad range based on intuition, but I compared the actual best distances from the in-corpus and out-of-corpus questions and set the threshold at 0.65 in the gap between those groups instead of guessing.
+
+---
+
+# Unit 2
 
 <!-- The number you set in config.py, and how you got there.
 
